@@ -467,6 +467,7 @@ async function uploadPhotos(files) {
   }
   LS.set('pixel_album_meta', meta);
   showToast(`上传 ${count} 张到「${getAlbumName(currentAlbumId)}」`);
+  syncToCloud(true);
   renderAlbumPhotos();
   updateHomeStats();
 }
@@ -515,6 +516,7 @@ async function batchDeletePhotos(ids) {
   LS.set('pixel_album_meta', meta);
   APP.selectedAlbums.clear();
   showToast(`已删除 ${ids.length} 张图片`);
+  syncToCloud(true);
   renderAlbumPhotos();
   updateHomeStats();
 }
@@ -524,6 +526,7 @@ async function deletePhoto(id) {
   LS.set('pixel_album_meta', LS.get('pixel_album_meta', []).filter((p) => p.id !== id));
   APP.selectedAlbums.delete(id);
   showToast('图片已删除');
+  syncToCloud(true);
   renderAlbumPhotos();
   updateHomeStats();
 }
@@ -545,6 +548,7 @@ $('#createAlbumConfirmBtn').addEventListener('click', () => {
   saveAlbums(albums);
   closeModal($('#createAlbumModal'));
   showToast(`相册「${name}」已创建`);
+  syncToCloud(true);
   renderAlbumGallery();
 });
 $('#createAlbumCancelBtn').addEventListener('click', () => {
@@ -578,6 +582,7 @@ $('#albumDeleteAlbumBtn').addEventListener('click', () => {
   LS.set('pixel_album_meta', meta);
   saveAlbums(getAlbums().filter((a) => a.id !== currentAlbumId));
   showToast('相册已删除');
+  syncToCloud(true);
   switchToGalleryView();
 });
 
@@ -742,6 +747,7 @@ $('#noteSaveBtn').addEventListener('click', () => {
 
   saveNotes(notes);
   showToast('笔记已保存');
+  syncToCloud(true);
   APP.editingNoteId = null;
   APP.noteTags = [];
   $('#notesEditor').style.display = 'none';
@@ -758,6 +764,7 @@ $('#noteDeleteBtn').addEventListener('click', () => {
     const notes = getNotes().filter((n) => n.id !== APP.editingNoteId);
     saveNotes(notes);
     showToast('笔记已删除');
+    syncToCloud(true);
     APP.editingNoteId = null;
     APP.noteTags = [];
     $('#notesEditor').style.display = 'none';
@@ -995,6 +1002,7 @@ $('#bookmarkBatchDelBtn').addEventListener('click', () => {
     saveBookmarks(bookmarks);
     APP.selectedBookmarks.clear();
     showToast(`已删除 ${ids.length} 个书签`);
+    syncToCloud(true);
     renderBookmarks();
     updateHomeStats();
   }
@@ -1074,6 +1082,7 @@ $('#bookmarkSaveBtn').addEventListener('click', () => {
 
   saveBookmarks(bookmarks);
   showToast('书签已保存');
+  syncToCloud(true);
   closeModal($('#bookmarkModal'));
   APP.editingBookmarkId = null;
   renderBookmarks();
@@ -1086,6 +1095,7 @@ function deleteBookmark(id) {
   saveBookmarks(bookmarks);
   APP.selectedBookmarks.delete(id);
   showToast('书签已删除');
+  syncToCloud(true);
   renderBookmarks();
   updateHomeStats();
 }
@@ -1135,12 +1145,14 @@ $$('.theme-color').forEach((btn) => {
   btn.addEventListener('click', () => {
     applyTheme(btn.dataset.theme);
     showToast('主题已更新');
+    syncToCloud(true);
   });
 });
 
 $('#themeCustomColor').addEventListener('input', () => {
   applyTheme($('#themeCustomColor').value);
   showToast('主题已更新');
+  syncToCloud(true);
 });
 
 // 头像
@@ -1154,6 +1166,7 @@ $('#avatarFileInput').addEventListener('change', async () => {
   LS.set('pixel_avatar', dataUrl);
   updateAvatarDisplay(dataUrl);
   showToast('头像已更新');
+  syncToCloud(true);
   updateHomeStats();
 });
 
@@ -1161,6 +1174,7 @@ $('#avatarResetBtn').addEventListener('click', () => {
   LS.remove('pixel_avatar');
   updateAvatarDisplay('');
   showToast('头像已重置');
+  syncToCloud(true);
   updateHomeStats();
 });
 
@@ -1184,6 +1198,7 @@ $('#nicknameSaveBtn').addEventListener('click', () => {
   }
   LS.set('pixel_nickname', nickname);
   showToast('昵称已保存');
+  syncToCloud(true);
   updateHomeStats();
 });
 
@@ -1310,21 +1325,47 @@ function refreshSettingsUI() {
   updateAvatarDisplay(avatar);
 }
 
-// ===================== 登录认证 =====================
+// ===================== 登录认证（含Cookie持久化 + 云端同步） =====================
 const AUTH = {
   username: 'admin',
-  // 密码哈希存储，防止源码直接暴露明文
   passwordHash: 'zhangdaniubi',
 };
+const SYNC_URL = 'https://pixel-sync.zhangdaniubi.workers.dev';
+const SESSION_DAYS = 7;
+
+// Cookie 工具
+function setCookie(name, value, days) {
+  const d = new Date(); d.setTime(d.getTime() + days * 86400000);
+  document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+}
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? decodeURIComponent(m[2]) : null;
+}
+function delCookie(name) { setCookie(name, '', -1); }
 
 function checkLogin() {
-  return LS.get('pixel_logged_in', false);
+  if (LS.get('pixel_logged_in', false)) {
+    // 检查是否过期
+    const loginTime = LS.get('pixel_login_time', 0);
+    if (Date.now() - loginTime < SESSION_DAYS * 86400000) return true;
+  }
+  // Cookie 备份
+  if (getCookie('pixel_auth') === '1') {
+    LS.set('pixel_logged_in', true);
+    LS.set('pixel_login_time', Date.now());
+    return true;
+  }
+  return false;
 }
 
 function doLogin(username, password) {
   if (username === AUTH.username && password === AUTH.passwordHash) {
     LS.set('pixel_logged_in', true);
     LS.set('pixel_login_time', Date.now());
+    setCookie('pixel_auth', '1', SESSION_DAYS);
+    LS.set('pixel_sync_user', username);
+    LS.set('pixel_sync_pass', password);
     return true;
   }
   return false;
@@ -1333,11 +1374,98 @@ function doLogin(username, password) {
 function doLogout() {
   LS.remove('pixel_logged_in');
   LS.remove('pixel_login_time');
+  LS.remove('pixel_sync_pass');
+  delCookie('pixel_auth');
   location.reload();
 }
 
+// ===================== 云端数据同步 =====================
+async function syncToCloud(silent = false) {
+  const user = LS.get('pixel_sync_user', '');
+  const pass = LS.get('pixel_sync_pass', '');
+  if (!user || !pass) return false;
+  try {
+    const payload = btoa(user + ':' + pass);
+    // 收集本地数据（不含照片 binary）
+    const data = {
+      notes: LS.get('pixel_notes', []),
+      bookmarks: LS.get('pixel_bookmarks', []),
+      albumMeta: LS.get('pixel_album_meta', []),
+      albums: LS.get('pixel_albums', []),
+      settings: {
+        accent: LS.get('pixel_accent', '#888888'),
+        nickname: LS.get('pixel_nickname', '像素旅人'),
+        avatar: LS.get('pixel_avatar', ''),
+      },
+    };
+    // 打包照片（仅小尺寸）
+    data.photos = {};
+    for (const p of data.albumMeta) {
+      const rec = await dbGet('photos', p.id);
+      if (rec) data.photos[p.id] = rec.dataUrl;
+    }
+    const res = await fetch(SYNC_URL + '/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + payload },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!silent && result.ok) showToast('数据已同步 ☁');
+    return result.ok;
+  } catch (e) {
+    if (!silent) showToast('同步失败：网络错误');
+    return false;
+  }
+}
+
+async function syncFromCloud(silent = false) {
+  const user = LS.get('pixel_sync_user', '');
+  const pass = LS.get('pixel_sync_pass', '');
+  if (!user || !pass) return false;
+  try {
+    const payload = btoa(user + ':' + pass);
+    const res = await fetch(SYNC_URL + '/api/sync', {
+      headers: { 'Authorization': 'Basic ' + payload },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data || !data.notes) return false; // 空数据不覆盖
+    // 合并云端数据到本地
+    if (data.notes) LS.set('pixel_notes', data.notes);
+    if (data.bookmarks) LS.set('pixel_bookmarks', data.bookmarks);
+    if (data.albums) LS.set('pixel_albums', data.albums);
+    if (data.albumMeta) {
+      // 合并照片元数据（保留本地独有的）
+      const localMeta = LS.get('pixel_album_meta', []);
+      const cloudIds = new Set(data.albumMeta.map((p) => p.id));
+      const merged = [...data.albumMeta];
+      for (const p of localMeta) {
+        if (!cloudIds.has(p.id)) merged.push(p);
+      }
+      LS.set('pixel_album_meta', merged);
+    }
+    if (data.settings) {
+      if (data.settings.accent) LS.set('pixel_accent', data.settings.accent);
+      if (data.settings.nickname) LS.set('pixel_nickname', data.settings.nickname);
+      if (data.settings.avatar) LS.set('pixel_avatar', data.settings.avatar);
+    }
+    // 恢复照片
+    if (data.photos) {
+      for (const [id, dataUrl] of Object.entries(data.photos)) {
+        const exists = await dbGet('photos', id);
+        if (!exists && dataUrl) await dbAdd('photos', { id, dataUrl });
+      }
+    }
+    if (!silent) showToast('数据已从云端恢复 ☁');
+    return true;
+  } catch (e) {
+    if (!silent) showToast('同步失败：网络错误');
+    return false;
+  }
+}
+
 // 登录表单提交
-$('#loginSubmitBtn').addEventListener('click', () => {
+$('#loginSubmitBtn').addEventListener('click', async () => {
   pixelShake($('#loginSubmitBtn'));
   const username = $('#loginUsername').value.trim();
   const password = $('#loginPassword').value.trim();
@@ -1350,15 +1478,21 @@ $('#loginSubmitBtn').addEventListener('click', () => {
   if (doLogin(username, password)) {
     $('#loginError').textContent = '';
     $('#loginOverlay').classList.add('hidden');
-    showToast('欢迎回来，' + username + '！');
+    showToast('登录成功，正在同步...');
+    // 先拉云端数据
+    const synced = await syncFromCloud(true);
+    if (synced) showToast('已同步云端数据 ☁');
     updateHomeStats();
     updateLoginIndicator();
+    refreshSettingsUI();
+    // 再推本地数据
+    syncToCloud(true);
   } else {
     $('#loginError').textContent = '账号或密码错误';
     $('#loginPassword').value = '';
     const card = document.querySelector('.login-card');
     card.classList.add('katana-shake-c');
-    card.addEventListener('animationend', () => card.classList.remove('pixel-shake'), { once: true });
+    card.addEventListener('animationend', () => card.classList.remove('katana-shake-c'), { once: true });
   }
 });
 
@@ -1405,13 +1539,21 @@ async function init() {
 
   // 初始化相册（含旧数据迁移）
   ensureDefaultAlbum();
-  currentAlbumId = getCurrentAlbumId();
+  currentAlbumId = 'album_default';
 
   // 登录检查
   if (checkLogin()) {
     $('#loginOverlay').classList.add('hidden');
+    // 后台静默同步云端数据
+    syncFromCloud(true).then(() => {
+      updateHomeStats();
+      refreshSettingsUI();
+      if (APP.currentTab === 'album') renderAlbum();
+      if (APP.currentTab === 'notes') renderNotesList();
+      if (APP.currentTab === 'bookmarks') renderBookmarks();
+    });
   } else {
-    // 显示登录遮罩，隐藏主体
+    // 显示登录遮罩
     $('#loginOverlay').classList.remove('hidden');
     $('#loginUsername').focus();
   }
@@ -1424,8 +1566,7 @@ async function init() {
   // 更新首页
   updateHomeStats();
 
-  console.log('◈ PIXEL.HOME v1.0 初始化完成 ◈');
-  console.log('数据全部存储在你的浏览器本地，完全离线可用');
+  console.log('◈ PIXEL.HOME v2.0 初始化完成 | 云端同步就绪 ◈');
 }
 
 // 启动

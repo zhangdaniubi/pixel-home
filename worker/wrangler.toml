@@ -1,0 +1,7 @@
+name = "pixel-sync"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "PIXEL_DATA"
+id = "4f05186e2183467388f6f9efddc67726"
