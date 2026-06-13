@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PIXEL HOME - 像素个人主页</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%232b2b2b'/><rect x='2' y='2' width='4' height='4' fill='%23888'/><rect x='10' y='2' width='4' height='4' fill='%23888'/><rect x='2' y='10' width='4' height='4' fill='%23888'/><rect x='10' y='10' width='4' height='4' fill='%23888'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 扫描线叠加层 -->
+  <div class="scanlines"></div>
+
+  <!-- 故障转场遮罩 -->
+  <div class="glitch-overlay" id="glitchOverlay"></div>
+
+  <!-- 登录遮罩 -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card pixel-card">
+      <div class="login-icon">◈</div>
+      <h2 class="pixel-title">PIXEL.HOME</h2>
+      <p class="login-subtitle">ENTER PASSWORD TO CONTINUE</p>
+      <div class="login-form">
+        <label class="login-label">USERNAME</label>
+        <input type="text" class="pixel-input login-input" id="loginUsername" placeholder="账号..." autocomplete="off">
+        <label class="login-label">PASSWORD</label>
+        <input type="password" class="pixel-input login-input" id="loginPassword" placeholder="密码..." autocomplete="off">
+        <button class="pixel-btn login-btn" id="loginSubmitBtn">▸ LOGIN</button>
+      </div>
+      <p class="login-error" id="loginError"></p>
+    </div>
+  </div>
+
+  <!-- 顶部导航栏 -->
+  <header class="pixel-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">PIXEL<span class="logo-accent">.HOME</span></span>
+      </div>
+      <button class="hamburger" id="hamburgerBtn" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="pixel-nav" id="pixelNav">
+        <button class="nav-btn pixel-btn active" data-tab="home">
+          <span class="nav-icon">⌂</span> 首页
+        </button>
+        <button class="nav-btn pixel-btn" data-tab="album">
+          <span class="nav-icon">▣</span> 相册
+        </button>
+        <button class="nav-btn pixel-btn" data-tab="notes">
+          <span class="nav-icon">▤</span> 笔记
+        </button>
+        <button class="nav-btn pixel-btn" data-tab="bookmarks">
+          <span class="nav-icon">★</span> 书签
+        </button>
+        <button class="nav-btn pixel-btn" data-tab="settings">
+          <span class="nav-icon">⚙</span> 设置
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 主内容区域 -->
+  <main class="pixel-main">
+    <!-- ===== 首页 - 个人信息卡片 ===== -->
+    <section class="tab-content active" id="tab-home">
+      <div class="home-container">
+        <div class="profile-card pixel-card">
+          <div class="profile-avatar-wrapper">
+            <div class="profile-avatar" id="homeAvatar">
+              <img src="" alt="头像" id="homeAvatarImg" style="display:none">
+              <span class="avatar-placeholder" id="homeAvatarPlaceholder">◈</span>
+            </div>
+            <div class="avatar-frame"></div>
+          </div>
+          <h1 class="profile-name pixel-text" id="homeNickname">像素旅人</h1>
+          <p class="profile-bio pixel-text-secondary">WELCOME TO MY PIXEL WORLD</p>
+          <div class="profile-stats">
+            <div class="stat-item">
+              <span class="stat-num" id="statPhotos">0</span>
+              <span class="stat-label">相片</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-num" id="statNotes">0</span>
+              <span class="stat-label">笔记</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-num" id="statBookmarks">0</span>
+              <span class="stat-label">书签</span>
+            </div>
+          </div>
+          <div class="profile-footer">
+            <span class="pixel-badge">LOCAL FIRST</span>
+            <span class="pixel-badge">8BIT</span>
+            <span class="pixel-badge">CLOUDFLARE</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 相册模块 ===== -->
+    <section class="tab-content" id="tab-album">
+      <!-- ===== 视图1：相册列表 ===== -->
+      <div class="album-view" id="albumGalleryView">
+        <div class="module-header">
+          <h2 class="pixel-title">▣ 像素相册</h2>
+          <p class="pixel-subtitle">本地存储 · 永久保存 · 分类管理</p>
+        </div>
+        <div class="toolbar">
+          <button class="pixel-btn btn-sm" id="albumCreateBtn">+ 新建相册</button>
+        </div>
+        <div class="album-gallery-grid" id="albumGalleryGrid">
+          <p class="empty-hint">加载中...</p>
+        </div>
+      </div>
+      <!-- ===== 视图2：相册内照片 ===== -->
+      <div class="album-view" id="albumPhotoView" style="display:none">
+        <div class="photo-view-header">
+          <button class="pixel-btn btn-sm" id="albumBackBtn">← 返回</button>
+          <h2 class="pixel-title photo-view-title" id="albumPhotoTitle">相册名称</h2>
+          <span class="photo-count-label" id="albumPhotoCount">0张</span>
+        </div>
+        <!-- 操作栏 -->
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button class="pixel-btn btn-sm" id="albumUploadBtn">+ 上传图片</button>
+            <button class="pixel-btn btn-sm btn-secondary" id="albumRenameBtn">重命名</button>
+            <button class="pixel-btn btn-sm" id="albumMoveBtn">移入此相册</button>
+          </div>
+          <div class="toolbar-right">
+            <button class="pixel-btn btn-sm btn-danger" id="albumBatchDelBtn" disabled>批量删除</button>
+            <button class="pixel-btn btn-sm btn-danger" id="albumDeleteAlbumBtn">删除相册</button>
+          </div>
+        </div>
+        <!-- 上传区域（拖拽） -->
+        <div class="upload-zone pixel-card" id="uploadZone">
+          <div class="upload-zone-inner">
+            <span class="upload-icon">▣</span>
+            <p>拖拽图片到此区域 或 点击上传</p>
+            <p class="upload-hint">支持 JPG / PNG / GIF / WEBP</p>
+          </div>
+          <input type="file" id="albumFileInput" accept="image/*" multiple hidden>
+        </div>
+        <!-- 图片网格 -->
+        <div class="album-grid" id="albumGrid">
+          <p class="empty-hint" id="albumEmpty">还没有图片，快来上传吧~</p>
+        </div>
+      </div>
+      <!-- 图片预览弹窗 -->
+      <div class="pixel-modal" id="albumPreviewModal">
+        <div class="pixel-modal-backdrop"></div>
+        <div class="pixel-modal-content">
+          <button class="pixel-modal-close" id="albumPreviewClose">✕</button>
+          <img src="" alt="预览" id="albumPreviewImg">
+          <div class="pixel-modal-actions">
+            <button class="pixel-btn btn-sm" id="albumPreviewRotateBtn">↻ 旋转90°</button>
+            <button class="pixel-btn btn-sm" id="albumPreviewMoveBtn">移动相册</button>
+            <button class="pixel-btn btn-sm btn-danger" id="albumPreviewDelBtn">删除</button>
+          </div>
+        </div>
+      </div>
+      <!-- 新建相册弹窗 -->
+      <div class="pixel-modal" id="createAlbumModal">
+        <div class="pixel-modal-backdrop"></div>
+        <div class="pixel-modal-content pixel-modal-sm">
+          <h3>▣ 新建相册</h3>
+          <input type="text" class="pixel-input" id="newAlbumNameInput" placeholder="输入相册名称...">
+          <div class="pixel-modal-actions">
+            <button class="pixel-btn" id="createAlbumConfirmBtn">创建</button>
+            <button class="pixel-btn btn-secondary" id="createAlbumCancelBtn">取消</button>
+          </div>
+        </div>
+      </div>
+      <!-- 移动照片弹窗 -->
+      <div class="pixel-modal" id="moveToAlbumModal">
+        <div class="pixel-modal-backdrop"></div>
+        <div class="pixel-modal-content pixel-modal-sm">
+          <h3>↗ 移入相册</h3>
+          <p class="pixel-text-secondary" style="margin-bottom:12px">选择要移入的相册，可批量移动当前选中的照片</p>
+          <div class="album-move-list" id="albumMoveList"></div>
+          <button class="pixel-btn btn-secondary" id="moveToAlbumCloseBtn">关闭</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 笔记模块 ===== -->
+    <section class="tab-content" id="tab-notes">
+      <div class="module-header">
+        <h2 class="pixel-title">▤ 像素笔记</h2>
+        <p class="pixel-subtitle">富文本记录 · 自动保存 · 标签检索</p>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="pixel-btn btn-sm" id="noteNewBtn">+ 新建笔记</button>
+          <input type="text" class="pixel-input" id="noteSearchInput" placeholder="搜索笔记...">
+        </div>
+        <div class="toolbar-right">
+          <select class="pixel-select" id="noteTagFilter">
+            <option value="all">全部标签</option>
+          </select>
+        </div>
+      </div>
+      <div class="notes-container">
+        <div class="notes-list" id="notesList">
+          <p class="empty-hint" id="notesEmpty">还没有笔记，创建一个吧~</p>
+        </div>
+        <div class="notes-editor pixel-card" id="notesEditor" style="display:none">
+          <input type="text" class="pixel-input" id="noteTitleInput" placeholder="笔记标题...">
+          <textarea class="pixel-textarea" id="noteContentInput" placeholder="写下你的想法..." rows="8"></textarea>
+          <div class="editor-toolbar">
+            <input type="text" class="pixel-input" id="noteTagInput" placeholder="添加标签（回车确认）">
+            <div class="note-tags" id="noteTagsDisplay"></div>
+          </div>
+          <div class="editor-actions">
+            <button class="pixel-btn btn-sm" id="noteSaveBtn">保存笔记</button>
+            <button class="pixel-btn btn-sm btn-secondary" id="noteCancelBtn">取消</button>
+            <button class="pixel-btn btn-sm btn-danger" id="noteDeleteBtn">删除笔记</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 书签模块 ===== -->
+    <section class="tab-content" id="tab-bookmarks">
+      <div class="module-header">
+        <h2 class="pixel-title">★ 像素书签</h2>
+        <p class="pixel-subtitle">网址收藏 · 分组管理 · 一键跳转</p>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="pixel-btn btn-sm" id="bookmarkNewBtn">+ 添加书签</button>
+          <input type="text" class="pixel-input" id="bookmarkSearchInput" placeholder="搜索书签...">
+        </div>
+        <div class="toolbar-right">
+          <select class="pixel-select" id="bookmarkGroupFilter">
+            <option value="all">全部组</option>
+          </select>
+          <button class="pixel-btn btn-sm btn-danger" id="bookmarkBatchDelBtn" disabled>批量删除</button>
+        </div>
+      </div>
+      <!-- 书签表单弹窗 -->
+      <div class="pixel-modal" id="bookmarkModal">
+        <div class="pixel-modal-backdrop"></div>
+        <div class="pixel-modal-content pixel-modal-sm">
+          <h3 id="bookmarkModalTitle">★ 添加书签</h3>
+          <input type="text" class="pixel-input" id="bookmarkNameInput" placeholder="网站名称...">
+          <input type="url" class="pixel-input" id="bookmarkUrlInput" placeholder="网址 URL...">
+          <input type="text" class="pixel-input" id="bookmarkNoteInput" placeholder="备注（可选）...">
+          <select class="pixel-select" id="bookmarkGroupSelect">
+            <option value="">默认分组</option>
+          </select>
+          <div class="pixel-modal-actions">
+            <button class="pixel-btn" id="bookmarkSaveBtn">保存</button>
+            <button class="pixel-btn btn-secondary" id="bookmarkModalClose">取消</button>
+          </div>
+        </div>
+      </div>
+      <div class="bookmark-grid" id="bookmarkGrid">
+        <p class="empty-hint" id="bookmarkEmpty">还没有书签，添加你的第一个收藏吧~</p>
+      </div>
+    </section>
+
+    <!-- ===== 设置模块 ===== -->
+    <section class="tab-content" id="tab-settings">
+      <div class="module-header">
+        <h2 class="pixel-title">⚙ 全局设置</h2>
+        <p class="pixel-subtitle">主题 · 头像 · 昵称 · 数据管理</p>
+      </div>
+      <div class="settings-container">
+        <!-- 主题色 -->
+        <div class="pixel-card settings-card">
+          <h3>🎨 像素主题色</h3>
+          <div class="theme-picker">
+            <button class="theme-color active" data-theme="#888888" style="background:#888888"></button>
+            <button class="theme-color" data-theme="#6b8f71" style="background:#6b8f71"></button>
+            <button class="theme-color" data-theme="#8b6b8f" style="background:#8b6b8f"></button>
+            <button class="theme-color" data-theme="#8f6b6b" style="background:#8f6b6b"></button>
+            <button class="theme-color" data-theme="#6b8b8f" style="background:#6b8b8f"></button>
+            <button class="theme-color" data-theme="#c0a060" style="background:#c0a060"></button>
+            <input type="color" class="theme-custom" id="themeCustomColor" value="#888888" title="自定义颜色">
+          </div>
+        </div>
+        <!-- 头像 -->
+        <div class="pixel-card settings-card">
+          <h3>🖼 个人头像</h3>
+          <div class="avatar-settings">
+            <div class="profile-avatar settings-avatar" id="settingsAvatar">
+              <img src="" alt="头像" id="settingsAvatarImg" style="display:none">
+              <span class="avatar-placeholder" id="settingsAvatarPlaceholder">◈</span>
+            </div>
+            <div>
+              <button class="pixel-btn btn-sm" id="avatarUploadBtn">上传头像</button>
+              <button class="pixel-btn btn-sm btn-secondary" id="avatarResetBtn">重置默认</button>
+              <input type="file" id="avatarFileInput" accept="image/*" hidden>
+              <p class="upload-hint">支持 JPG / PNG，将压缩为 128×128</p>
+            </div>
+          </div>
+        </div>
+        <!-- 昵称 -->
+        <div class="pixel-card settings-card">
+          <h3>✏ 主页昵称</h3>
+          <input type="text" class="pixel-input" id="nicknameInput" placeholder="输入你的昵称..." maxlength="20">
+          <button class="pixel-btn btn-sm" id="nicknameSaveBtn" style="margin-top:8px">保存昵称</button>
+        </div>
+        <!-- 数据管理 -->
+        <div class="pixel-card settings-card">
+          <h3>🗄 数据管理</h3>
+          <div class="data-actions">
+            <button class="pixel-btn btn-sm" id="exportDataBtn">导出全部数据</button>
+            <button class="pixel-btn btn-sm" id="importDataBtn">导入数据</button>
+            <button class="pixel-btn btn-sm btn-danger" id="clearDataBtn">清除全部数据</button>
+            <input type="file" id="importFileInput" accept=".json" hidden>
+          </div>
+          <p class="upload-hint">导出为 JSON 文件，可用于备份和迁移</p>
+        </div>
+        <!-- 安全 -->
+        <div class="pixel-card settings-card">
+          <h3>🔒 安全设置</h3>
+          <p class="pixel-text-secondary" style="margin-bottom:8px">当前已登录，敏感数据受保护</p>
+          <button class="pixel-btn btn-sm btn-danger" id="settingsLogoutBtn">退出登录</button>
+        </div>
+        <!-- 部署信息 -->
+        <div class="pixel-card settings-card">
+          <h3>🚀 部署信息</h3>
+          <p class="pixel-text-secondary">PIXEL.HOME v1.0 · 纯前端 · 零后端依赖</p>
+          <p class="pixel-text-secondary">直接上传至 Cloudflare Pages 即可部署</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="pixel-footer">
+    <p>PIXEL.HOME © 2026 · 8BIT FOREVER</p>
+  </footer>
+
+  <!-- Toast 提示 -->
+  <div class="pixel-toast" id="pixelToast"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
