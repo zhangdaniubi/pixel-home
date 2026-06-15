@@ -8,6 +8,8 @@ const APP = {
   currentTab: 'home',
   albumSelectionMode: false,
   selectedAlbums: new Set(),
+  currentTheme: 'pixel', // 'pixel' | 'sci-fi'
+};
   bookmarkSelectionMode: false,
   selectedBookmarks: new Set(),
   editingNoteId: null,
@@ -1641,6 +1643,48 @@ function updateLoginIndicator() {
   }
 }
 
+// ===================== 风格主题切换 =====================
+function switchTheme(theme) {
+  APP.currentTheme = theme;
+  if (theme === 'sci-fi') {
+    document.documentElement.setAttribute('data-theme', 'sci-fi');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  LS.set('pixel_theme', theme);
+  updateThemeToggleBtn();
+}
+
+function updateThemeToggleBtn() {
+  const btn = $('#themeToggleBtn');
+  if (!btn) return;
+  if (APP.currentTheme === 'sci-fi') {
+    btn.textContent = '◈ 像素风';
+    btn.style.background = 'rgba(0,212,255,0.15)';
+    btn.style.color = '#00d4ff';
+  } else {
+    btn.textContent = '✦ 科幻风';
+    btn.style.background = 'rgba(168,85,247,0.15)';
+    btn.style.color = '#c084fc';
+  }
+}
+
+function addThemeToggleBtn() {
+  const existing = $('#themeToggleBtn');
+  if (existing) existing.remove();
+  const btn = document.createElement('button');
+  btn.id = 'themeToggleBtn';
+  btn.className = 'pixel-btn btn-sm';
+  btn.style.cssText = 'position:fixed;bottom:80px;left:20px;z-index:500;font-size:0.48rem;';
+  btn.addEventListener('click', () => {
+    const next = APP.currentTheme === 'sci-fi' ? 'pixel' : 'sci-fi';
+    switchTheme(next);
+    showToast(next === 'sci-fi' ? '已切换到科幻风 ✦' : '已切换到像素风 ◈');
+  });
+  document.body.appendChild(btn);
+  updateThemeToggleBtn();
+}
+
 // ===================== 工具函数 =====================
 function escapeHTML(str) {
   if (!str) return '';
@@ -1651,6 +1695,10 @@ function escapeHTML(str) {
 
 // ===================== 初始化 =====================
 async function init() {
+  // 加载主题
+  const savedTheme = LS.get('pixel_theme', 'pixel');
+  switchTheme(savedTheme);
+
   // 打开数据库
   await openDB();
 
@@ -1678,8 +1726,9 @@ async function init() {
   }
   updateLoginIndicator();
 
-  // 添加手动同步按钮
+  // 添加手动同步按钮 + 主题切换按钮
   addSyncButton();
+  addThemeToggleBtn();
 
   // 应用保存的主题
   const savedAccent = LS.get('pixel_accent', '#888888');
