@@ -620,13 +620,20 @@ $('#albumPreviewDelBtn').addEventListener('click', () => {
 window.downloadPreviewPhoto = function() {
   if (!APP.currentPreviewPhotoId) return;
   const img = document.getElementById('albumPreviewImg');
-  if (img && img.src && img.src.startsWith('data:')) {
-    // 直接打开原图在新标签页，右键保存
-    window.open(img.src, '_blank');
-    showToast('右键图片 → 另存为');
-  } else {
-    showToast('图片加载中，请稍后再试');
+  if (!img || !img.src || !img.src.startsWith('data:')) {
+    showToast('图片加载中，请稍候...');
+    return;
   }
+  showToast('正在准备下载...');
+  // dataURL转Blob避免URL长度限制
+  fetch(img.src)
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('右键图片另存为');
+    })
+    .catch(e => showToast('下载失败：' + e.message));
 };
 
 // ---- 旋转90° ----

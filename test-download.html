@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>下载测试</title></head>
+<body>
+<h2>点击按钮测试下载</h2>
+<img id="testImg" src="" style="max-width:200px;border:2px solid red"><br>
+<button onclick="testDownload()" style="padding:20px;font-size:18px;">⬇ 测试下载</button>
+<p id="msg"></p>
+
+<script>
+// 模拟一张小图作为 dataURL
+const testDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+// 加载图片
+document.getElementById('testImg').src = testDataUrl;
+
+function testDownload() {
+  const img = document.getElementById('testImg');
+  document.getElementById('msg').textContent = 'img.src length: ' + img.src.length;
+  
+  // 方式1: window.open
+  const w = window.open(img.src, '_blank');
+  if (w) {
+    document.getElementById('msg').textContent += ' | window.open OK';
+  } else {
+    document.getElementById('msg').textContent += ' | POPUP BLOCKED!';
+  }
+}
+</script>
+</body>
+</html>
