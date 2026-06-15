@@ -617,30 +617,15 @@ $('#albumPreviewDelBtn').addEventListener('click', () => {
 });
 
 // ---- 下载原图（全局函数，HTML onclick 调用）----
-window.downloadPreviewPhoto = async function() {
+window.downloadPreviewPhoto = function() {
   if (!APP.currentPreviewPhotoId) return;
-  const id = APP.currentPreviewPhotoId;
-  // 先创建 a 标签（保留用户手势上下文）
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  showToast('正在下载...');
-  try {
-    const record = await dbGet('photos', id);
-    if (!record || !record.dataUrl) { document.body.removeChild(a); showToast('图片数据丢失'); return; }
-    // dataURL → Blob
-    const res = await fetch(record.dataUrl);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const meta = LS.get('pixel_album_meta', []).find(p => p.id === id);
-    a.href = url;
-    a.download = meta ? meta.name : 'photo_' + id + '.jpg';
-    a.click();
-    setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-    showToast('下载完成');
-  } catch (e) {
-    document.body.removeChild(a);
-    showToast('下载失败：' + e.message);
+  const img = document.getElementById('albumPreviewImg');
+  if (img && img.src && img.src.startsWith('data:')) {
+    // 直接打开原图在新标签页，右键保存
+    window.open(img.src, '_blank');
+    showToast('右键图片 → 另存为');
+  } else {
+    showToast('图片加载中，请稍后再试');
   }
 };
 
