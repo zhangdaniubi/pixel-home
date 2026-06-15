@@ -1379,26 +1379,8 @@ function doLogout() {
   location.reload();
 }
 
-// ===================== 云端数据同步（含照片二次压缩） =====================
+// ===================== 云端数据同步（原图上传） =====================
 let syncInProgress = false;
-
-// 二次压缩照片（更小尺寸，适合云端同步）
-function recompressImage(dataUrl, maxWidth = 400, quality = 0.4) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > maxWidth) { h = h * maxWidth / w; w = maxWidth; }
-      c.width = w; c.height = h;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => resolve(dataUrl); // 降级：原始图
-    img.src = dataUrl;
-  });
-}
 
 async function syncToCloud(silent = false) {
   if (syncInProgress) { if (!silent) showToast('同步进行中，请稍候...'); return false; }
@@ -1433,23 +1415,14 @@ async function syncToCloud(silent = false) {
       },
     };
 
-    // 打包照片（二次压缩后上传）
-    const maxPhotos = 50;
-    const photosToSync = albumMeta.slice(0, maxPhotos);
-    if (photosToSync.length > 0) {
-      updateProgress('⏳ 压缩照片...');
-    }
+    // 原图上传（不做二次压缩）
     data.photos = {};
-    for (let i = 0; i < photosToSync.length; i++) {
-      const p = photosToSync[i];
+    for (let i = 0; i < albumMeta.length; i++) {
+      const p = albumMeta[i];
       const rec = await dbGet('photos', p.id);
-      if (rec && rec.dataUrl) {
-        // 二次压缩减小体积
-        const small = await recompressImage(rec.dataUrl, 300, 0.35);
-        data.photos[p.id] = small;
-      }
+      if (rec && rec.dataUrl) data.photos[p.id] = rec.dataUrl;
       if (i % 5 === 0 && !silent) {
-        updateProgress('⏳ ' + (i + 1) + '/' + photosToSync.length);
+        updateProgress('⏳ ' + (i + 1) + '/' + albumMeta.length);
       }
     }
 
@@ -1470,7 +1443,7 @@ async function syncToCloud(silent = false) {
     });
     const result = await res.json();
     if (result.ok) {
-      if (!silent) showToast('同步完成 ☁ (' + photosToSync.length + '张照片, ' + sizeMB + 'MB)');
+      if (!silent) showToast('同步完成 ☁ (' + albumMeta.length + '张原图, ' + sizeMB + 'MB)');
     } else {
       if (!silent) showToast('同步失败：' + (result.error || '服务器错误'));
     }
