@@ -65,10 +65,10 @@ export default {
       }
       try {
         const data = await request.json();
-        // 限制数据大小（KV 上限 25MB，这里限制 5MB）
+        // 限制数据大小（KV 上限 25MB）
         const json = JSON.stringify(data);
-        if (json.length > 5 * 1024 * 1024) {
-          return new Response(JSON.stringify({ error: '数据过大' }), {
+        if (json.length > 20 * 1024 * 1024) {
+          return new Response(JSON.stringify({ error: '数据过大，照片太多了' }), {
             status: 413,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

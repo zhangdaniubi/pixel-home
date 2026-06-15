@@ -1379,22 +1379,49 @@ function doLogout() {
   location.reload();
 }
 
-// ===================== 云端数据同步（仅文本元数据，不含大照片） =====================
+// ===================== 云端数据同步（含照片二次压缩） =====================
 let syncInProgress = false;
 
+// 二次压缩照片（更小尺寸，适合云端同步）
+function recompressImage(dataUrl, maxWidth = 400, quality = 0.4) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = h * maxWidth / w; w = maxWidth; }
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // 降级：原始图
+    img.src = dataUrl;
+  });
+}
+
 async function syncToCloud(silent = false) {
-  if (syncInProgress) return false;
+  if (syncInProgress) { if (!silent) showToast('同步进行中，请稍候...'); return false; }
   syncInProgress = true;
   const user = LS.get('pixel_sync_user', '');
   const pass = LS.get('pixel_sync_pass', '');
   if (!user || !pass) { syncInProgress = false; return false; }
+
+  const syncBtn = $('#manualSyncBtn');
+  const updateProgress = (text) => {
+    if (syncBtn && !silent) syncBtn.textContent = text;
+  };
+
   try {
+    updateProgress('⏳ 打包...');
     const payload = btoa(user + ':' + pass);
-    // 只同步文本元数据（不包含照片base64，体积太大）
+    const albumMeta = LS.get('pixel_album_meta', []);
+
+    // 收集文本元数据
     const data = {
       notes: LS.get('pixel_notes', []),
       bookmarks: LS.get('pixel_bookmarks', []),
-      albumMeta: LS.get('pixel_album_meta', []).map(p => ({
+      albumMeta: albumMeta.map(p => ({
         id: p.id, name: p.name, albumId: p.albumId,
         createdAt: p.createdAt, rotation: p.rotation || 0
       })),
@@ -1405,24 +1432,55 @@ async function syncToCloud(silent = false) {
         avatar: LS.get('pixel_avatar', ''),
       },
     };
+
+    // 打包照片（二次压缩后上传）
+    const maxPhotos = 50;
+    const photosToSync = albumMeta.slice(0, maxPhotos);
+    if (photosToSync.length > 0) {
+      updateProgress('⏳ 压缩照片...');
+    }
+    data.photos = {};
+    for (let i = 0; i < photosToSync.length; i++) {
+      const p = photosToSync[i];
+      const rec = await dbGet('photos', p.id);
+      if (rec && rec.dataUrl) {
+        // 二次压缩减小体积
+        const small = await recompressImage(rec.dataUrl, 300, 0.35);
+        data.photos[p.id] = small;
+      }
+      if (i % 5 === 0 && !silent) {
+        updateProgress('⏳ ' + (i + 1) + '/' + photosToSync.length);
+      }
+    }
+
     const body = JSON.stringify(data);
-    if (body.length > 4 * 1024 * 1024) {
-      if (!silent) showToast('数据过大，请清理旧数据');
+    const sizeMB = (body.length / 1024 / 1024).toFixed(1);
+    if (body.length > 18 * 1024 * 1024) {
+      if (!silent) showToast('数据过大(' + sizeMB + 'MB)，请删减照片');
       syncInProgress = false;
+      updateProgress('☁ 同步');
       return false;
     }
+
+    updateProgress('⏳ 上传 ' + sizeMB + 'MB...');
     const res = await fetch(SYNC_URL + '/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + payload },
       body: body,
     });
     const result = await res.json();
-    if (result.ok && !silent) showToast('数据已同步 ☁');
+    if (result.ok) {
+      if (!silent) showToast('同步完成 ☁ (' + photosToSync.length + '张照片, ' + sizeMB + 'MB)');
+    } else {
+      if (!silent) showToast('同步失败：' + (result.error || '服务器错误'));
+    }
     syncInProgress = false;
+    updateProgress('☁ 同步');
     return result.ok;
   } catch (e) {
     if (!silent) showToast('同步失败：请检查网络');
     syncInProgress = false;
+    updateProgress('☁ 同步');
     return false;
   }
 }
@@ -1431,28 +1489,57 @@ async function syncFromCloud(silent = false) {
   const user = LS.get('pixel_sync_user', '');
   const pass = LS.get('pixel_sync_pass', '');
   if (!user || !pass) return false;
+
+  const syncBtn = $('#manualSyncBtn');
+  const updateProgress = (text) => {
+    if (syncBtn && !silent) syncBtn.textContent = text;
+  };
+
   try {
+    updateProgress('⏬ 下载...');
     const payload = btoa(user + ':' + pass);
     const res = await fetch(SYNC_URL + '/api/sync', {
       headers: { 'Authorization': 'Basic ' + payload },
     });
-    if (!res.ok) { if (!silent) showToast('同步失败：服务器错误'); return false; }
+    if (!res.ok) { if (!silent) showToast('同步失败：服务器错误'); updateProgress('☁ 同步'); return false; }
     const data = await res.json();
-    if (!data || !data.notes) { if (!silent) showToast('云端暂无数据'); return false; }
-    // 云端数据直接覆盖本地
-    if (data.notes && data.notes.length) LS.set('pixel_notes', data.notes);
-    if (data.bookmarks && data.bookmarks.length) LS.set('pixel_bookmarks', data.bookmarks);
-    if (data.albums && data.albums.length) LS.set('pixel_albums', data.albums);
-    if (data.albumMeta && data.albumMeta.length) LS.set('pixel_album_meta', data.albumMeta);
+    if (!data || (!data.notes && !data.bookmarks && !data.albumMeta)) {
+      if (!silent) showToast('云端暂无数据'); updateProgress('☁ 同步'); return false;
+    }
+
+    // 覆盖本地文本数据
+    if (data.notes) LS.set('pixel_notes', data.notes);
+    if (data.bookmarks) LS.set('pixel_bookmarks', data.bookmarks);
+    if (data.albums) LS.set('pixel_albums', data.albums);
+    if (data.albumMeta) LS.set('pixel_album_meta', data.albumMeta);
     if (data.settings) {
       if (data.settings.accent) LS.set('pixel_accent', data.settings.accent);
       if (data.settings.nickname) LS.set('pixel_nickname', data.settings.nickname);
       if (data.settings.avatar) LS.set('pixel_avatar', data.settings.avatar);
     }
-    if (!silent) showToast('云端数据已加载 ☁');
+
+    // 恢复照片
+    if (data.photos) {
+      const photoIds = Object.keys(data.photos);
+      for (let i = 0; i < photoIds.length; i++) {
+        const id = photoIds[i];
+        const exists = await dbGet('photos', id);
+        if (!exists) {
+          await dbAdd('photos', { id, dataUrl: data.photos[id] });
+        }
+        if (i % 3 === 0 && !silent) {
+          updateProgress('⏬ ' + (i + 1) + '/' + photoIds.length);
+        }
+      }
+      if (!silent) showToast('已恢复 ' + photoIds.length + ' 张照片 ☁');
+    } else {
+      if (!silent) showToast('云端数据已加载 ☁');
+    }
+    updateProgress('☁ 同步');
     return true;
   } catch (e) {
     if (!silent) showToast('同步失败：请检查网络');
+    updateProgress('☁ 同步');
     return false;
   }
 }
