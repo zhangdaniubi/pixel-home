@@ -620,22 +620,26 @@ $('#albumPreviewDelBtn').addEventListener('click', () => {
 window.downloadPreviewPhoto = async function() {
   if (!APP.currentPreviewPhotoId) return;
   const id = APP.currentPreviewPhotoId;
+  // 先创建 a 标签（保留用户手势上下文）
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  document.body.appendChild(a);
   showToast('正在下载...');
   try {
     const record = await dbGet('photos', id);
-    if (!record || !record.dataUrl) { showToast('图片数据丢失'); return; }
+    if (!record || !record.dataUrl) { document.body.removeChild(a); showToast('图片数据丢失'); return; }
+    // dataURL → Blob
     const res = await fetch(record.dataUrl);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
     const meta = LS.get('pixel_album_meta', []).find(p => p.id === id);
+    a.href = url;
     a.download = meta ? meta.name : 'photo_' + id + '.jpg';
-    document.body.appendChild(a);
     a.click();
     setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
     showToast('下载完成');
   } catch (e) {
+    document.body.removeChild(a);
     showToast('下载失败：' + e.message);
   }
 };
