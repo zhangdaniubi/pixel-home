@@ -1642,12 +1642,16 @@ function updateLoginIndicator() {
   }
 }
 
-// ===================== 风格主题切换 =====================
+// ===================== 风格主题切换（直接禁用/启用CSS文件） =====================
 function switchTheme(theme) {
   APP.currentTheme = theme;
+  const cssSciFi = document.getElementById('css-scifi');
   if (theme === 'sci-fi') {
+    cssSciFi.disabled = false;
+    // 同时设置data-theme以支持sci-fi.css中的某些选择器
     document.documentElement.setAttribute('data-theme', 'sci-fi');
   } else {
+    cssSciFi.disabled = true;
     document.documentElement.removeAttribute('data-theme');
   }
   LS.set('pixel_theme', theme);
@@ -1659,12 +1663,14 @@ function updateThemeToggleBtn() {
   if (!btn) return;
   if (APP.currentTheme === 'sci-fi') {
     btn.textContent = '◈ 像素风';
-    btn.style.background = 'rgba(0,212,255,0.15)';
+    btn.style.background = 'rgba(0,212,255,0.12)';
     btn.style.color = '#00d4ff';
+    btn.style.borderColor = '#008099';
   } else {
     btn.textContent = '✦ 科幻风';
-    btn.style.background = 'rgba(168,85,247,0.15)';
+    btn.style.background = 'rgba(168,85,247,0.1)';
     btn.style.color = '#c084fc';
+    btn.style.borderColor = '#6b21a8';
   }
 }
 
