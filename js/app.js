@@ -616,31 +616,29 @@ $('#albumPreviewDelBtn').addEventListener('click', () => {
   if (APP.currentPreviewPhotoId) { deletePhoto(APP.currentPreviewPhotoId); closeModal($('#albumPreviewModal')); }
 });
 
-// ---- 下载原图 ----
-$('#albumPreviewDownloadBtn').addEventListener('click', async () => {
+// ---- 下载原图（全局函数，HTML onclick 调用）----
+window.downloadPreviewPhoto = async function() {
   if (!APP.currentPreviewPhotoId) return;
-  pixelShake($('#albumPreviewDownloadBtn'));
   const id = APP.currentPreviewPhotoId;
+  showToast('正在下载...');
   try {
     const record = await dbGet('photos', id);
     if (!record || !record.dataUrl) { showToast('图片数据丢失'); return; }
-    // dataURL → Blob（fetch 方式，支持任意大小）
     const res = await fetch(record.dataUrl);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const meta = LS.get('pixel_album_meta', []).find(p => p.id === id);
-    a.download = meta ? meta.name : 'photo.jpg';
+    a.download = meta ? meta.name : 'photo_' + id + '.jpg';
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-    showToast('开始下载原图');
+    setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    showToast('下载完成');
   } catch (e) {
-    showToast('下载失败');
-    console.error('Download error:', e);
+    showToast('下载失败：' + e.message);
   }
-});
+};
 
 // ---- 旋转90° ----
 $('#albumPreviewRotateBtn').addEventListener('click', async () => {
