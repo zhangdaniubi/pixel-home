@@ -451,14 +451,26 @@ $('#albumBackBtn').addEventListener('click', () => {
   switchToGalleryView();
 });
 
-// ---- 上传图片（到当前相册） ----
+// ---- 原图上传（不做任何压缩）----
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadPhotos(files) {
   const meta = LS.get('pixel_album_meta', []);
   let count = 0;
-  for (const file of files) {
+  const total = files.length;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
     if (!file.type.startsWith('image/')) continue;
     try {
-      const dataUrl = await compressImage(file, 800, 0.7);
+      showToast(`上传中 ${i + 1}/${total}...`, 1000);
+      const dataUrl = await fileToDataURL(file);
       const id = 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       await dbAdd('photos', { id, dataUrl });
       meta.push({ id, name: file.name, albumId: currentAlbumId, createdAt: Date.now(), rotation: 0 });
@@ -466,7 +478,7 @@ async function uploadPhotos(files) {
     } catch (e) { console.error('上传失败:', e); }
   }
   LS.set('pixel_album_meta', meta);
-  showToast(`上传 ${count} 张到「${getAlbumName(currentAlbumId)}」`);
+  showToast(`上传 ${count} 张原图到「${getAlbumName(currentAlbumId)}」`);
   syncToCloud(true);
   renderAlbumPhotos();
   updateHomeStats();
@@ -602,6 +614,20 @@ function previewPhoto(id) {
 $('#albumPreviewClose').addEventListener('click', () => closeModal($('#albumPreviewModal')));
 $('#albumPreviewDelBtn').addEventListener('click', () => {
   if (APP.currentPreviewPhotoId) { deletePhoto(APP.currentPreviewPhotoId); closeModal($('#albumPreviewModal')); }
+});
+
+// ---- 下载原图 ----
+$('#albumPreviewDownloadBtn').addEventListener('click', () => {
+  if (!APP.currentPreviewPhotoId) return;
+  pixelShake($('#albumPreviewDownloadBtn'));
+  const dataUrl = $('#albumPreviewImg').src;
+  if (!dataUrl || dataUrl === location.href) { showToast('无图片可下载'); return; }
+  const a = document.createElement('a');
+  const meta = LS.get('pixel_album_meta', []).find(p => p.id === APP.currentPreviewPhotoId);
+  a.download = meta ? meta.name : 'photo.jpg';
+  a.href = dataUrl;
+  a.click();
+  showToast('开始下载原图');
 });
 
 // ---- 旋转90° ----
