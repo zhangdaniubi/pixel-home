@@ -621,19 +621,25 @@ window.downloadPreviewPhoto = function() {
   if (!APP.currentPreviewPhotoId) return;
   const img = document.getElementById('albumPreviewImg');
   if (!img || !img.src || !img.src.startsWith('data:')) {
-    showToast('图片加载中，请稍候...');
-    return;
+    showToast('图片加载中...'); return;
   }
-  showToast('正在准备下载...');
-  // dataURL转Blob避免URL长度限制
-  fetch(img.src)
-    .then(r => r.blob())
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      showToast('右键图片另存为');
-    })
-    .catch(e => showToast('下载失败：' + e.message));
+  // 同步创建下载链接，保持用户手势
+  var a = document.createElement('a');
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  showToast('正在处理...');
+  fetch(img.src).then(function(r) { return r.blob(); }).then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    var meta = (JSON.parse(localStorage.getItem('pixel_album_meta')||'[]')).find(function(p){return p.id===APP.currentPreviewPhotoId;});
+    a.download = (meta ? meta.name : 'photo') + '.jpg';
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    showToast('下载中...');
+  }).catch(function(e) {
+    document.body.removeChild(a);
+    showToast('下载失败：' + e.message);
+  });
 };
 
 // ---- 旋转90° ----
