@@ -9,7 +9,6 @@ const APP = {
   albumSelectionMode: false,
   selectedAlbums: new Set(),
   currentTheme: 'pixel', // 'pixel' | 'sci-fi'
-};
   bookmarkSelectionMode: false,
   selectedBookmarks: new Set(),
   editingNoteId: null,
