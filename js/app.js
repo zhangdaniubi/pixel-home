@@ -617,36 +617,29 @@ $('#albumPreviewDelBtn').addEventListener('click', () => {
 });
 
 // ---- 下载原图 ----
-$('#albumPreviewDownloadBtn').addEventListener('click', () => {
+$('#albumPreviewDownloadBtn').addEventListener('click', async () => {
   if (!APP.currentPreviewPhotoId) return;
   pixelShake($('#albumPreviewDownloadBtn'));
-  const img = $('#albumPreviewImg');
-  if (!img || !img.src || img.src.startsWith('blob:')) { showToast('图片加载中...'); return; }
-  const meta = LS.get('pixel_album_meta', []).find(p => p.id === APP.currentPreviewPhotoId);
-  const filename = meta ? meta.name : 'photo.jpg';
-  // 对于 dataURL 直接下载
-  if (img.src.startsWith('data:')) {
-    const a = document.createElement('a');
-    a.href = img.src;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showToast('正在下载原图...');
-    return;
-  }
-  // 兜底方案：fetch 转 blob 下载
-  fetch(img.src).then(r => r.blob()).then(blob => {
+  const id = APP.currentPreviewPhotoId;
+  try {
+    const record = await dbGet('photos', id);
+    if (!record || !record.dataUrl) { showToast('图片数据丢失'); return; }
+    // dataURL → Blob（fetch 方式，支持任意大小）
+    const res = await fetch(record.dataUrl);
+    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    const meta = LS.get('pixel_album_meta', []).find(p => p.id === id);
+    a.download = meta ? meta.name : 'photo.jpg';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('正在下载原图...');
-  });
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    showToast('开始下载原图');
+  } catch (e) {
+    showToast('下载失败');
+    console.error('Download error:', e);
+  }
 });
 
 // ---- 旋转90° ----
